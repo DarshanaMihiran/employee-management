@@ -1,0 +1,51 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+- task: UseDotNet@2
+  inputs:
+    packageType: 'sdk'
+    version: '8.x'  # Adjust this to match your .NET version
+    installationPath: $(Agent.ToolsDirectory)/dotnet
+
+- script: |
+    dotnet restore
+    dotnet build --configuration Release
+    dotnet publish -c Release -o $(Build.ArtifactStagingDirectory)
+  displayName: 'Build and Publish API'
+
+- task: CopyFiles@2
+  inputs:
+    SourceFolder: '$(Build.ArtifactStagingDirectory)'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/output'
+
+- task: ArchiveFiles@2
+  inputs:
+    rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/output'
+    includeRootFolder: false
+    archiveFile: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    replaceExistingArchive: true
+
+- task: PublishBuildArtifacts@1
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+    artifactName: 'drop'
+
+- task: AzureWebApp@1
+  inputs:
+    azureSubscription: 'EmployeeManagement-RG'
+    appType: 'webApp'
+    appName: 'empmgm'
+    package: '$(Build.ArtifactStagingDirectory)/$(Build.BuildId).zip'
+
+- task: SqlAzureDacpacDeployment@1
+  inputs:
+    azureSubscription: 'EmployeeManagement-RG'
+    SqlFile: '$(Build.ArtifactStagingDirectory)/InitialCreate.dacpac'  # Adjust for your migrations
+    ServerName: 'employeedbdev.database.windows.net'
+    DatabaseName: 'employeedb-dev'
+    AuthenticationType: 'aadAuthentication'
+    AadSqlManagedIdentity: 'SystemAssigned'
