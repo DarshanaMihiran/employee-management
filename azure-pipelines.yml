@@ -2,7 +2,7 @@ trigger:
 - main
 
 pool:
-  vmImage: 'windows-latest'
+  vmImage: 'Azure Pipelines'
 
 steps:
 - task: UseDotNet@2
